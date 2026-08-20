@@ -1,24 +1,38 @@
 /* =========================================================
    SR AI CHAT - CLOUDFLARE VERSION
+   Complete AI Chat Module
    ========================================================= */
 
 (function initAIChat() {
 
-  // Prevent duplicate initialization
+  /* =========================================================
+     PREVENT DUPLICATE INITIALIZATION
+     ========================================================= */
+
   if (document.getElementById("srAiChatPanel")) {
+    console.log("ℹ️ SR AI Chat already initialized");
     return;
   }
+
 
   /* =========================================================
      CREATE FLOATING AI BUTTON
      ========================================================= */
 
-  const chatButton = document.createElement("button");
+  const chatButton =
+    document.createElement("button");
 
-  chatButton.id = "srAiChatButton";
-  chatButton.className = "ai-chat-button";
-  chatButton.type = "button";
-  chatButton.title = "Open SR AI Assistant";
+  chatButton.id =
+    "srAiChatButton";
+
+  chatButton.className =
+    "ai-chat-button";
+
+  chatButton.type =
+    "button";
+
+  chatButton.title =
+    "Open SR AI Assistant";
 
   chatButton.innerHTML = `
     <span class="ai-chat-icon">✦</span>
@@ -32,10 +46,15 @@
      CREATE CHAT PANEL
      ========================================================= */
 
-  const chatPanel = document.createElement("div");
+  const chatPanel =
+    document.createElement("div");
 
-  chatPanel.id = "srAiChatPanel";
-  chatPanel.className = "ai-chat-panel";
+  chatPanel.id =
+    "srAiChatPanel";
+
+  chatPanel.className =
+    "ai-chat-panel";
+
 
   chatPanel.innerHTML = `
 
@@ -48,11 +67,19 @@
         </div>
 
         <div>
-          <strong>SR AI Assistant</strong>
-          <span>IT Helpdesk Closure Copilot</span>
+
+          <strong>
+            SR AI Assistant
+          </strong>
+
+          <span>
+            IT Helpdesk Closure Copilot
+          </span>
+
         </div>
 
       </div>
+
 
       <button
         type="button"
@@ -77,19 +104,37 @@
           AI
         </div>
 
+
         <div class="ai-message-content">
 
           <div class="ai-message-name">
             SR AI Assistant
           </div>
 
+
           <div class="ai-message-bubble">
+
             Hi! I'm your SR Closure AI Assistant.
+
             <br><br>
-            I can help you find quick-win SRs, decide what to work on
-            next, explain blockers, and prepare requester messages.
+
+            I can help you:
+
+            <br>
+            • Find quick-win SRs
+            <br>
+            • Decide what to work on next
+            <br>
+            • Find old or stale SRs
+            <br>
+            • Prepare requester messages
+            <br>
+            • Explain blockers
+
             <br><br>
+
             What would you like to know?
+
           </div>
 
         </div>
@@ -108,6 +153,7 @@
         What should I close first?
       </button>
 
+
       <button
         type="button"
         data-chat="Show me the oldest open SRs."
@@ -115,12 +161,14 @@
         Oldest SRs
       </button>
 
+
       <button
         type="button"
         data-chat="Find quick wins in my SR backlog."
       >
         Quick wins
       </button>
+
 
       <button
         type="button"
@@ -142,6 +190,7 @@
         autocomplete="off"
       />
 
+
       <button
         id="srAiChatSend"
         class="ai-chat-send"
@@ -155,44 +204,69 @@
 
   `;
 
+
   document.body.appendChild(chatPanel);
 
 
   /* =========================================================
-     ELEMENTS
+     GET ELEMENTS
      ========================================================= */
 
   const closeButton =
-    document.getElementById("srAiChatClose");
+    document.getElementById(
+      "srAiChatClose"
+    );
+
 
   const messages =
-    document.getElementById("srAiChatMessages");
+    document.getElementById(
+      "srAiChatMessages"
+    );
+
 
   const input =
-    document.getElementById("srAiChatInput");
+    document.getElementById(
+      "srAiChatInput"
+    );
+
 
   const sendButton =
-    document.getElementById("srAiChatSend");
+    document.getElementById(
+      "srAiChatSend"
+    );
 
 
   /* =========================================================
-     OPEN / CLOSE
+     OPEN CHAT
      ========================================================= */
 
   function openChat() {
 
-    chatPanel.classList.add("open");
+    chatPanel.classList.add(
+      "open"
+    );
+
 
     setTimeout(() => {
-      input.focus();
+
+      if (input) {
+        input.focus();
+      }
+
     }, 150);
 
   }
 
 
+  /* =========================================================
+     CLOSE CHAT
+     ========================================================= */
+
   function closeChat() {
 
-    chatPanel.classList.remove("open");
+    chatPanel.classList.remove(
+      "open"
+    );
 
   }
 
@@ -210,7 +284,7 @@
 
 
   /* =========================================================
-     GET CURRENT SR DATA
+     GET SR DATA
      ========================================================= */
 
   function getChatRequests() {
@@ -219,68 +293,132 @@
 
 
     /*
-     * First try common localStorage keys.
+     * IMPORTANT:
+     * Main SR Closure Manager storage.
      */
 
-    const possibleKeys = [
-      "srRequests",
-      "requests",
-      "srData",
-      "importedRequests",
-      "srTracker",
-      "sr_closure_requests",
-      "srClosureData"
-    ];
+    const MAIN_STORAGE_KEY =
+      "sr_closure_manager_v6_final";
 
 
-    for (const key of possibleKeys) {
+    try {
 
-      try {
+      const raw =
+        localStorage.getItem(
+          MAIN_STORAGE_KEY
+        );
 
-        const raw =
-          localStorage.getItem(key);
 
-        if (!raw) {
-          continue;
-        }
-
+      if (raw) {
 
         const parsed =
           JSON.parse(raw);
 
 
-        if (Array.isArray(parsed)) {
-
-          requests = parsed;
-
-          if (requests.length) {
-            break;
-          }
-
-        }
-
-
         if (
           parsed &&
-          Array.isArray(parsed.requests)
+          Array.isArray(
+            parsed.requests
+          )
         ) {
 
           requests =
             parsed.requests;
 
-          if (requests.length) {
-            break;
-          }
-
         }
 
-      } catch (error) {
+      }
 
-        console.warn(
-          "Could not read localStorage:",
-          key,
-          error
-        );
+    } catch (error) {
+
+      console.error(
+        "❌ Main SR storage error:",
+        error
+      );
+
+    }
+
+
+    /*
+     * Fallback storage keys.
+     */
+
+    if (!requests.length) {
+
+      const possibleKeys = [
+
+        "srRequests",
+        "requests",
+        "srData",
+        "importedRequests",
+        "srTracker",
+        "sr_closure_requests",
+        "srClosureData"
+
+      ];
+
+
+      for (
+        const key of possibleKeys
+      ) {
+
+        try {
+
+          const raw =
+            localStorage.getItem(
+              key
+            );
+
+
+          if (!raw) {
+            continue;
+          }
+
+
+          const parsed =
+            JSON.parse(raw);
+
+
+          if (
+            Array.isArray(parsed)
+          ) {
+
+            requests =
+              parsed;
+
+          }
+
+
+          if (
+            parsed &&
+            Array.isArray(
+              parsed.requests
+            )
+          ) {
+
+            requests =
+              parsed.requests;
+
+          }
+
+
+          if (
+            requests.length
+          ) {
+
+            break;
+
+          }
+
+        } catch (error) {
+
+          console.warn(
+            "⚠️ Could not read:",
+            key,
+            error
+          );
+
+        }
 
       }
 
@@ -288,12 +426,14 @@
 
 
     /*
-     * Try global application arrays.
+     * Try global requests variable.
      */
 
     if (
       !requests.length &&
-      Array.isArray(window.requests)
+      Array.isArray(
+        window.requests
+      )
     ) {
 
       requests =
@@ -302,9 +442,15 @@
     }
 
 
+    /*
+     * Try global srRequests.
+     */
+
     if (
       !requests.length &&
-      Array.isArray(window.srRequests)
+      Array.isArray(
+        window.srRequests
+      )
     ) {
 
       requests =
@@ -314,12 +460,13 @@
 
 
     /*
-     * Try common application variables.
+     * Try application getter.
      */
 
     if (
       !requests.length &&
-      typeof window.getRequests === "function"
+      typeof window.getRequests ===
+        "function"
     ) {
 
       try {
@@ -327,7 +474,10 @@
         const result =
           window.getRequests();
 
-        if (Array.isArray(result)) {
+
+        if (
+          Array.isArray(result)
+        ) {
 
           requests =
             result;
@@ -337,13 +487,19 @@
       } catch (error) {
 
         console.warn(
-          "getRequests() failed:",
+          "⚠️ getRequests() failed:",
           error
         );
 
       }
 
     }
+
+
+    console.log(
+      "📊 SR records available to AI:",
+      requests.length
+    );
 
 
     return requests;
@@ -362,47 +518,136 @@
 
 
     const openCount =
-      document.getElementById("openCount")
-        ?.textContent || "0";
+      document
+        .getElementById(
+          "openCount"
+        )
+        ?.textContent ||
+      "0";
 
 
     const closedToday =
-      document.getElementById("closedToday")
-        ?.textContent || "0";
+      document
+        .getElementById(
+          "closedToday"
+        )
+        ?.textContent ||
+      "0";
 
 
     const target =
-      document.getElementById("targetInput")
-        ?.value || "10";
+      document
+        .getElementById(
+          "targetInput"
+        )
+        ?.value ||
+      "10";
 
 
     const ready =
-      document.getElementById("ready")
-        ?.textContent || "0";
+      document
+        .getElementById(
+          "ready"
+        )
+        ?.textContent ||
+      "0";
 
 
     const old60 =
-      document.getElementById("old60")
-        ?.textContent || "0";
+      document
+        .getElementById(
+          "old60"
+        )
+        ?.textContent ||
+      "0";
 
 
     const old30 =
-      document.getElementById("old30")
-        ?.textContent || "0";
+      document
+        .getElementById(
+          "old30"
+        )
+        ?.textContent ||
+      "0";
 
 
     const stale =
-      document.getElementById("stale")
-        ?.textContent || "0";
+      document
+        .getElementById(
+          "stale"
+        )
+        ?.textContent ||
+      "0";
 
 
     /*
-     * Send only a reasonable amount of data.
-     * This prevents huge Gemini requests.
+     * Only send useful SR fields.
      */
 
     const limitedRequests =
-      requests.slice(0, 100);
+      requests
+        .slice(0, 100)
+        .map(sr => ({
+
+          id:
+            sr.id || "",
+
+          subject:
+            sr.subject || "",
+
+          requester:
+            sr.requester || "",
+
+          technician:
+            sr.technician || "",
+
+          status:
+            sr.status || "",
+
+          priority:
+            sr.priority || "",
+
+          site:
+            sr.site || "",
+
+          category:
+            sr.category || "",
+
+          created:
+            sr.created || "",
+
+          updated:
+            sr.updated || "",
+
+          ageDays:
+            sr.ageDays || "",
+
+          stage:
+            sr.myStage ||
+            "New",
+
+          nextAction:
+            sr.nextAction ||
+            "",
+
+          resolution:
+            sr.resolution ||
+            "",
+
+          notes:
+            sr.notes ||
+            "",
+
+          followupDate:
+            sr.followupDate ||
+            "",
+
+          closeReady:
+            Boolean(
+              sr.closeReady
+            )
+
+        }));
 
 
     return {
@@ -412,14 +657,18 @@
           .toISOString()
           .slice(0, 10),
 
+
       deadline:
         "2027-01-01",
+
 
       target:
         Number(target) || 10,
 
+
       closedToday:
         Number(closedToday) || 0,
+
 
       dashboard: {
 
@@ -440,8 +689,10 @@
 
       },
 
+
       totalRequests:
         requests.length,
+
 
       requests:
         limitedRequests
@@ -452,7 +703,7 @@
 
 
   /* =========================================================
-     ADD MESSAGE
+     ADD CHAT MESSAGE
      ========================================================= */
 
   function addMessage(
@@ -461,7 +712,9 @@
   ) {
 
     const wrapper =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
 
     wrapper.className =
@@ -471,7 +724,9 @@
 
 
     const avatar =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
 
     avatar.className =
@@ -485,7 +740,9 @@
 
 
     const content =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
 
     content.className =
@@ -493,7 +750,9 @@
 
 
     const name =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
 
     name.className =
@@ -507,7 +766,9 @@
 
 
     const bubble =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
 
     bubble.className =
@@ -520,23 +781,51 @@
 
     const safeText =
       String(text || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\n/g, "<br>");
+        .replace(
+          /&/g,
+          "&amp;"
+        )
+        .replace(
+          /</g,
+          "&lt;"
+        )
+        .replace(
+          />/g,
+          "&gt;"
+        )
+        .replace(
+          /\n/g,
+          "<br>"
+        );
 
 
     bubble.innerHTML =
       safeText;
 
 
-    content.appendChild(name);
-    content.appendChild(bubble);
+    content.appendChild(
+      name
+    );
 
-    wrapper.appendChild(avatar);
-    wrapper.appendChild(content);
 
-    messages.appendChild(wrapper);
+    content.appendChild(
+      bubble
+    );
+
+
+    wrapper.appendChild(
+      avatar
+    );
+
+
+    wrapper.appendChild(
+      content
+    );
+
+
+    messages.appendChild(
+      wrapper
+    );
 
 
     messages.scrollTop =
@@ -555,7 +844,9 @@
 
 
     const wrapper =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
 
     wrapper.id =
@@ -572,11 +863,13 @@
         AI
       </div>
 
+
       <div class="ai-message-content">
 
         <div class="ai-message-name">
           SR AI Assistant
         </div>
+
 
         <div class="ai-chat-thinking">
 
@@ -591,7 +884,9 @@
     `;
 
 
-    messages.appendChild(wrapper);
+    messages.appendChild(
+      wrapper
+    );
 
 
     messages.scrollTop =
@@ -599,6 +894,10 @@
 
   }
 
+
+  /* =========================================================
+     HIDE THINKING
+     ========================================================= */
 
   function hideThinking() {
 
@@ -618,7 +917,7 @@
 
 
   /* =========================================================
-     SEND MESSAGE TO CLOUDFLARE WORKER
+     SEND MESSAGE TO CLOUDFLARE
      ========================================================= */
 
   async function sendMessage(
@@ -634,12 +933,22 @@
 
 
     if (!message) {
+
       return;
+
     }
 
 
+    /*
+     * Clear input.
+     */
+
     input.value = "";
 
+
+    /*
+     * Show user message.
+     */
 
     addMessage(
       message,
@@ -647,47 +956,79 @@
     );
 
 
+    /*
+     * Show AI thinking.
+     */
+
     showThinking();
 
 
-    sendButton.disabled = true;
-    input.disabled = true;
+    sendButton.disabled =
+      true;
+
+    input.disabled =
+      true;
 
 
     try {
+
+      /*
+       * Get current SR data.
+       */
 
       const context =
         getChatContext();
 
 
       console.log(
-        "🤖 Sending AI chat request",
+        "🤖 Sending AI request:",
         {
           message,
-          context
+          totalSRs:
+            context.totalRequests
         }
       );
 
+
+      /*
+       * Call Cloudflare Worker.
+       */
 
       const response =
         await fetch(
           "/api/ai/chat",
           {
-            method: "POST",
+
+            method:
+              "POST",
 
             headers: {
+
               "Content-Type":
                 "application/json"
+
             },
 
             body:
               JSON.stringify({
-                message,
-                context
+
+                message:
+
+                  message,
+
+                context:
+
+                  context
+
               })
+
           }
         );
 
+
+      /*
+       * Parse response.
+       */
 
       let data;
 
@@ -706,6 +1047,10 @@
       }
 
 
+      /*
+       * Handle HTTP errors.
+       */
+
       if (!response.ok) {
 
         throw new Error(
@@ -716,7 +1061,14 @@
       }
 
 
-      if (!data?.reply) {
+      /*
+       * Validate AI response.
+       */
+
+      if (
+        !data ||
+        !data.reply
+      ) {
 
         throw new Error(
           "AI returned an empty response."
@@ -725,8 +1077,16 @@
       }
 
 
+      /*
+       * Remove thinking.
+       */
+
       hideThinking();
 
+
+      /*
+       * Show AI response.
+       */
 
       addMessage(
         data.reply,
@@ -737,7 +1097,7 @@
     } catch (error) {
 
       console.error(
-        "❌ AI chat error:",
+        "❌ AI Chat Error:",
         error
       );
 
@@ -757,8 +1117,13 @@
 
     } finally {
 
-      sendButton.disabled = false;
-      input.disabled = false;
+      sendButton.disabled =
+        false;
+
+
+      input.disabled =
+        false;
+
 
       input.focus();
 
@@ -773,8 +1138,10 @@
 
   sendButton.addEventListener(
     "click",
-    () => {
+    function () {
+
       sendMessage();
+
     }
   );
 
@@ -785,10 +1152,11 @@
 
   input.addEventListener(
     "keydown",
-    event => {
+    function (event) {
 
       if (
-        event.key === "Enter" &&
+        event.key ===
+          "Enter" &&
         !event.shiftKey
       ) {
 
@@ -810,28 +1178,32 @@
     .querySelectorAll(
       ".ai-chat-suggestions button"
     )
-    .forEach(button => {
+    .forEach(
+      function (button) {
 
-      button.addEventListener(
-        "click",
-        () => {
+        button.addEventListener(
+          "click",
+          function () {
 
-          const question =
-            button.dataset.chat;
+            const question =
+              button.dataset.chat;
 
 
-          if (question) {
-
-            sendMessage(
+            if (
               question
-            );
+            ) {
+
+              sendMessage(
+                question
+              );
+
+            }
 
           }
+        );
 
-        }
-      );
-
-    });
+      }
+    );
 
 
   /* =========================================================
@@ -840,11 +1212,14 @@
 
   document.addEventListener(
     "keydown",
-    event => {
+    function (event) {
 
       if (
-        event.key === "Escape" &&
-        chatPanel.classList.contains("open")
+        event.key ===
+          "Escape" &&
+        chatPanel.classList.contains(
+          "open"
+        )
       ) {
 
         closeChat();
@@ -856,12 +1231,13 @@
 
 
   /* =========================================================
-     DEBUG
+     DEBUG INFORMATION
      ========================================================= */
 
   console.log(
     "✅ SR AI Chat initialized"
   );
+
 
   console.log(
     "📊 SR records available to AI:",
