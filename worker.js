@@ -2,7 +2,7 @@ const MODEL = "gemini-3.6-flash";
 const FALLBACK_MODEL = "gemini-2.5-flash-lite";
 
 /* =========================================================
-   COMMON JSON RESPONSE
+   JSON RESPONSE
    ========================================================= */
 
 function json(data, status = 200) {
@@ -17,58 +17,45 @@ function json(data, status = 200) {
   });
 }
 
-/* =========================================================
-   EXTRACT JSON FROM GEMINI
-   ========================================================= */
-
-function extractJson(text) {
-  const cleaned = String(text || "")
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "");
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(
-          cleaned.slice(start, end + 1)
-        );
-      } catch {
-        throw new Error(
-          "Gemini returned invalid JSON"
-        );
-      }
-    }
-
-    throw new Error(
-      "Gemini returned invalid JSON"
-    );
-  }
-}
 
 /* =========================================================
-   GEMINI API
+   GEMINI REQUEST
    ========================================================= */
 
-async function generateWithModel(
-  env,
-  model,
-  prompt
-) {
+async function callGemini(env, model, prompt, jsonMode = false) {
+
   if (!env.GEMINI_API_KEY) {
-    throw new Error(
+    const error = new Error(
       "GEMINI_API_KEY is not configured in Cloudflare"
     );
+
+    error.status = 500;
+
+    throw error;
   }
+
 
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+
+  const generationConfig = {
+    temperature: 0.2
+  };
+
+
+  /*
+   * JSON mode is only used for the structured
+   * closure-plan and next-step APIs.
+   *
+   * Chat uses normal text.
+   */
+
+  if (jsonMode) {
+    generationConfig.responseMimeType =
+      "application/json";
+  }
+
 
   const response = await fetch(url, {
     method: "POST",
@@ -79,6 +66,7 @@ async function generateWithModel(
     },
 
     body: JSON.stringify({
+
       contents: [
         {
           parts: [
@@ -89,154 +77,475 @@ async function generateWithModel(
         }
       ],
 
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json"
-      }
+      generationConfig
+
     })
   });
+
 
   let data;
 
   try {
     data = await response.json();
   } catch {
-    throw new Error(
+    const error = new Error(
       "Gemini returned an invalid server response"
     );
-  }
-
-  if (!response.ok) {
-    const message =
-      data?.error?.message ||
-      `Gemini API request failed with status ${response.status}`;
-
-    const error = new Error(message);
 
     error.status = response.status;
 
     throw error;
   }
 
+
+  if (!response.ok) {
+
+    const message =
+      data?.error?.message ||
+      `Gemini API request failed with status ${response.status}`;
+
+
+    const error =
+      new Error(message);
+
+    error.status =
+      response.status;
+
+
+    console.error(
+      "Gemini API error:",
+      message
+    );
+
+
+    throw error;
+  }
+
+
   const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-    "";
+    data?.candidates?.[0]
+      ?.content
+      ?.parts
+      ?.map(part => part?.text || "")
+      .join("")
+      .trim();
+
 
   if (!text) {
+
+    console.error(
+      "Gemini returned:",
+      JSON.stringify(data)
+    );
+
+
     throw new Error(
       "Gemini returned an empty response"
     );
+
   }
 
-  return extractJson(text);
+
+  return text;
+
 }
 
+
 /* =========================================================
-   GEMINI RETRY + FALLBACK
+   JSON EXTRACTOR
    ========================================================= */
 
-async function generate(env, prompt) {
+function extractJson(text) {
+
+  const cleaned =
+    String(text || "")
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "");
+
+
+  try {
+
+    return JSON.parse(cleaned);
+
+  } catch {
+
+    const start =
+      cleaned.indexOf("{");
+
+    const end =
+      cleaned.lastIndexOf("}");
+
+
+    if (
+      start >= 0 &&
+      end > start
+    ) {
+
+      try {
+
+        return JSON.parse(
+          cleaned.slice(
+            start,
+            end + 1
+          )
+        );
+
+      } catch {
+
+        throw new Error(
+          "Gemini returned invalid JSON"
+        );
+
+      }
+
+    }
+
+
+    throw new Error(
+      "Gemini returned invalid JSON"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   STRUCTURED GEMINI GENERATION
+   ========================================================= */
+
+async function generateJSON(
+  env,
+  prompt
+) {
+
   let lastError = null;
 
-  // Primary model
-  for (let attempt = 1; attempt <= 2; attempt++) {
+
+  for (
+    let attempt = 1;
+    attempt <= 2;
+    attempt++
+  ) {
+
     try {
-      return await generateWithModel(
-        env,
-        MODEL,
-        prompt
+
+      const text =
+        await callGemini(
+          env,
+          MODEL,
+          prompt,
+          true
+        );
+
+
+      return extractJson(
+        text
       );
 
+
     } catch (err) {
-      lastError = err;
+
+      lastError =
+        err;
+
 
       console.error(
         `Primary Gemini attempt ${attempt} failed:`,
         err.message
       );
 
-      // Don't retry authentication / invalid-key errors
+
       if (
         err.status !== 429 &&
         err.status !== 503
       ) {
+
         throw err;
+
       }
 
-      if (attempt < 2) {
-        await new Promise(resolve =>
-          setTimeout(resolve, 1800)
+
+      if (
+        attempt < 2
+      ) {
+
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              1800
+            )
         );
+
       }
+
     }
+
   }
 
-  // Fallback model
-  if (
-    FALLBACK_MODEL &&
-    FALLBACK_MODEL !== MODEL
-  ) {
-    try {
-      console.log(
-        `Trying fallback model: ${FALLBACK_MODEL}`
-      );
 
-      return await generateWithModel(
+  try {
+
+    const text =
+      await callGemini(
         env,
         FALLBACK_MODEL,
-        prompt
+        prompt,
+        true
       );
 
-    } catch (err) {
-      lastError = err;
 
-      console.error(
-        "Fallback Gemini model failed:",
-        err.message
-      );
-    }
-  }
-
-  if (
-    lastError?.status === 429 ||
-    lastError?.status === 503
-  ) {
-    throw new Error(
-      "Gemini is temporarily busy or rate-limited. Please wait 20–30 seconds and try again."
+    return extractJson(
+      text
     );
+
+
+  } catch (err) {
+
+    lastError =
+      err;
+
+    console.error(
+      "Fallback Gemini model failed:",
+      err.message
+    );
+
   }
+
 
   throw (
     lastError ||
-    new Error("Gemini analysis failed")
+    new Error(
+      "Gemini analysis failed"
+    )
   );
+
 }
+
 
 /* =========================================================
-   SIMPLIFY SR DATA
+   NORMAL CHAT GENERATION
    ========================================================= */
 
-function simplifyRequests(requests) {
-  return requests
-    .slice(0, 300)
-    .map(sr => ({
-      id: sr.id,
-      subject: sr.subject,
-      requester: sr.requester,
-      technician: sr.technician,
-      status: sr.status,
-      priority: sr.priority,
-      site: sr.site,
-      category: sr.category,
-      created: sr.created,
-      updated: sr.updated,
-      ageDays: sr.ageDays,
-      stage: sr.myStage,
-      nextAction: sr.nextAction,
-      resolution: sr.resolution,
-      notes: sr.notes
-    }));
+async function generateChat(
+  env,
+  prompt
+) {
+
+  let lastError = null;
+
+
+  /*
+   * Primary model
+   */
+
+  for (
+    let attempt = 1;
+    attempt <= 2;
+    attempt++
+  ) {
+
+    try {
+
+      return await callGemini(
+        env,
+        MODEL,
+        prompt,
+        false
+      );
+
+    } catch (err) {
+
+      lastError =
+        err;
+
+
+      console.error(
+        `Chat Gemini attempt ${attempt} failed:`,
+        err.message
+      );
+
+
+      if (
+        err.status !== 429 &&
+        err.status !== 503
+      ) {
+
+        throw err;
+
+      }
+
+
+      if (
+        attempt < 2
+      ) {
+
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              1500
+            )
+        );
+
+      }
+
+    }
+
+  }
+
+
+  /*
+   * Fallback model
+   */
+
+  try {
+
+    return await callGemini(
+      env,
+      FALLBACK_MODEL,
+      prompt,
+      false
+    );
+
+  } catch (err) {
+
+    lastError =
+      err;
+
+    console.error(
+      "Fallback chat model failed:",
+      err.message
+    );
+
+  }
+
+
+  throw (
+    lastError ||
+    new Error(
+      "Gemini chat failed"
+    )
+  );
+
 }
+
+
+/* =========================================================
+   AI CHAT
+   ========================================================= */
+
+async function aiChat(
+  request,
+  env
+) {
+
+  const body =
+    await request.json();
+
+
+  const message =
+    String(
+      body?.message ||
+      ""
+    ).trim();
+
+
+  if (!message) {
+
+    return json(
+      {
+        error:
+          "Chat message is required"
+      },
+      400
+    );
+
+  }
+
+
+  const context =
+    body?.context ||
+    {};
+
+
+  /*
+   * Keep the prompt focused.
+   */
+
+  const prompt = `You are "SR AI Assistant", an expert IT Helpdesk Service Request Closure Copilot.
+
+You are assisting a technician who wants to legitimately reduce an IT service-request backlog.
+
+IMPORTANT RULES:
+
+1. Never invent that an SR is fixed.
+2. Never recommend false closure.
+3. Never claim requester confirmation exists unless the supplied data says so.
+4. If evidence or requester confirmation is needed, clearly say so.
+5. Prioritize quick legitimate wins.
+6. Consider age, stale updates, stage, priority, subject and blockers.
+7. If an SR is waiting for requester or vendor, explain that clearly.
+8. Give practical actions the technician can actually perform.
+9. You can summarize the supplied SR data.
+10. Do not expose API keys, secrets or internal credentials.
+11. Keep the response concise and useful.
+12. If the user asks "what should I close first", identify actual SR IDs from the supplied data.
+13. Do not invent SR IDs.
+
+CURRENT DASHBOARD:
+
+${JSON.stringify(
+  context.dashboard || {},
+  null,
+  2
+)}
+
+TOTAL IMPORTED SRs:
+
+${JSON.stringify(
+  context.totalRequests || 0
+)}
+
+SR DATA:
+
+${JSON.stringify(
+  context.requests || [],
+  null,
+  2
+)}
+
+TECHNICIAN QUESTION:
+
+${message}
+
+Answer directly as the SR AI Assistant.
+
+If recommending SRs, use this style:
+
+1. SR-ID — short reason
+   Next action: ...
+   Closure evidence: ...
+
+Then add a short overall recommendation if useful.`;
+
+
+  const reply =
+    await generateChat(
+      env,
+      prompt
+    );
+
+
+  return json({
+    reply
+  });
+
+}
+
 
 /* =========================================================
    CLOSURE PLAN
@@ -246,28 +555,86 @@ async function closurePlan(
   request,
   env
 ) {
-  const body = await request.json();
+
+  const body =
+    await request.json();
+
 
   const requests =
-    Array.isArray(body.requests)
+    Array.isArray(
+      body.requests
+    )
       ? body.requests
       : [];
 
+
   if (!requests.length) {
+
     return json(
       {
-        error: "No SRs supplied"
+        error:
+          "No SRs supplied"
       },
       400
     );
+
   }
 
+
   const simplified =
-    simplifyRequests(requests);
+    requests.map(
+      sr => ({
+
+        id:
+          sr.id,
+
+        subject:
+          sr.subject,
+
+        requester:
+          sr.requester,
+
+        technician:
+          sr.technician,
+
+        status:
+          sr.status,
+
+        priority:
+          sr.priority,
+
+        site:
+          sr.site,
+
+        category:
+          sr.category,
+
+        created:
+          sr.created,
+
+        updated:
+          sr.updated,
+
+        ageDays:
+          sr.ageDays,
+
+        stage:
+          sr.myStage,
+
+        nextAction:
+          sr.nextAction,
+
+        resolution:
+          sr.resolution,
+
+        notes:
+          sr.notes
+
+      })
+    );
+
 
   const prompt = `You are an expert IT Helpdesk Service Request Closure Assistant.
-
-Your goal is to help a technician legitimately close as many service requests as possible.
 
 Rank the best 10 SRs to work on first.
 
@@ -283,7 +650,7 @@ Rules:
 - Keep recommendations concise.
 - Only recommend closure when the supplied SR information supports it.
 
-Return ONLY JSON in this exact shape:
+Return ONLY JSON:
 
 {
   "recommendations": [
@@ -309,11 +676,20 @@ ${JSON.stringify(
   2
 )}`;
 
-  const result =
-    await generate(env, prompt);
 
-  return json(result);
+  const result =
+    await generateJSON(
+      env,
+      prompt
+    );
+
+
+  return json(
+    result
+  );
+
 }
+
 
 /* =========================================================
    NEXT STEP
@@ -323,18 +699,27 @@ async function nextStep(
   request,
   env
 ) {
-  const body = await request.json();
 
-  const sr = body.sr;
+  const body =
+    await request.json();
+
+
+  const sr =
+    body?.sr;
+
 
   if (!sr) {
+
     return json(
       {
-        error: "SR data is required"
+        error:
+          "SR data is required"
       },
       400
     );
+
   }
+
 
   const prompt = `You are an IT Helpdesk closure assistant.
 
@@ -365,156 +750,83 @@ ${JSON.stringify(
   2
 )}`;
 
+
   const result =
-    await generate(env, prompt);
-
-  return json(result);
-}
-
-/* =========================================================
-   AI CHAT
-   ========================================================= */
-
-async function chat(
-  request,
-  env
-) {
-  const body = await request.json();
-
-  const message =
-    String(body.message || "").trim();
-
-  const requests =
-    Array.isArray(body.requests)
-      ? body.requests
-      : [];
-
-  if (!message) {
-    return json(
-      {
-        error: "Message is required"
-      },
-      400
+    await generateJSON(
+      env,
+      prompt
     );
-  }
 
-  const simplified =
-    simplifyRequests(requests);
 
-  const prompt = `You are "SR Closing AI", an intelligent IT Helpdesk Service Request assistant.
+  return json(
+    result
+  );
 
-You are helping an IT Helpdesk technician manage and legitimately close service requests.
-
-You have access to the SR data supplied below.
-
-YOUR JOB:
-
-- Answer the technician's question directly.
-- Analyze SRs when asked.
-- Identify urgent or SLA-risk SRs.
-- Recommend legitimate closure candidates.
-- Suggest next actions.
-- Explain why an SR is a priority.
-- Draft requester messages.
-- Summarize pending SRs.
-- Compare SRs.
-- Help the technician decide what to work on next.
-
-IMPORTANT RULES:
-
-- Never invent that an SR is fixed.
-- Never recommend false closure.
-- Never claim an SR was closed unless the data proves it.
-- Never invent requester confirmation.
-- Never invent technical resolution.
-- If information is missing, clearly say that the information is not available.
-- Prioritize legitimate and practical actions.
-- Be concise.
-- Use the actual SR IDs from the supplied data.
-- If the user asks about an SR that does not exist in the supplied data, say that you cannot find it.
-- If the user asks for a requester message, make it professional and short.
-- If the user asks "what should I do next?", give actionable steps.
-
-CURRENT SR DATA:
-
-${JSON.stringify(
-  simplified,
-  null,
-  2
-)}
-
-TECHNICIAN QUESTION:
-
-${message}
-
-Return ONLY JSON:
-
-{
-  "answer": "Concise answer for the technician",
-  "srIds": [
-    "SR-ID"
-  ],
-  "actions": [
-    "Recommended action"
-  ]
-}`;
-
-  const result =
-    await generate(env, prompt);
-
-  return json(result);
 }
 
+
 /* =========================================================
-   CLOUDFLARE WORKER
+   WORKER
    ========================================================= */
 
 export default {
+
   async fetch(
     request,
     env
   ) {
-    const url =
-      new URL(request.url);
 
-    /* -----------------------------------------------------
-       CORS PREFLIGHT
-       ----------------------------------------------------- */
+    const url =
+      new URL(
+        request.url
+      );
+
+
+    /*
+     * CORS
+     */
 
     if (
-      request.method === "OPTIONS"
+      request.method ===
+      "OPTIONS"
     ) {
+
       return new Response(
         null,
         {
           status: 204,
 
           headers: {
-            "Access-Control-Allow-Origin":
-              "*",
-
+            "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods":
               "GET, POST, OPTIONS",
-
             "Access-Control-Allow-Headers":
               "Content-Type"
           }
+
         }
       );
+
     }
+
 
     try {
 
-      /* ---------------------------------------------------
-         HEALTH
-         --------------------------------------------------- */
+      /*
+       * Health
+       */
 
       if (
-        url.pathname === "/api/health" &&
-        request.method === "GET"
+        url.pathname ===
+          "/api/health" &&
+        request.method ===
+          "GET"
       ) {
+
         return json({
-          ok: true,
+
+          ok:
+            true,
 
           ai:
             Boolean(
@@ -529,76 +841,92 @@ export default {
 
           fallbackModel:
             FALLBACK_MODEL
+
         });
+
       }
 
-      /* ---------------------------------------------------
-         CLOSURE PLAN
-         --------------------------------------------------- */
 
-      if (
-        url.pathname ===
-          "/api/ai/closure-plan" &&
-        request.method === "POST"
-      ) {
-        return await closurePlan(
-          request,
-          env
-        );
-      }
-
-      /* ---------------------------------------------------
-         NEXT STEP
-         --------------------------------------------------- */
-
-      if (
-        url.pathname ===
-          "/api/ai/next-step" &&
-        request.method === "POST"
-      ) {
-        return await nextStep(
-          request,
-          env
-        );
-      }
-
-      /* ---------------------------------------------------
-         AI CHAT
-         --------------------------------------------------- */
+      /*
+       * ⭐ NEW AI CHAT ENDPOINT
+       */
 
       if (
         url.pathname ===
           "/api/ai/chat" &&
-        request.method === "POST"
+        request.method ===
+          "POST"
       ) {
-        return await chat(
+
+        return await aiChat(
           request,
           env
         );
+
       }
 
-      /* ---------------------------------------------------
-         STATIC FRONTEND
 
-         Public/
-           index.html
-           app.js
-           style.css
-         --------------------------------------------------- */
+      /*
+       * AI closure plan
+       */
 
-      if (env.ASSETS) {
+      if (
+        url.pathname ===
+          "/api/ai/closure-plan" &&
+        request.method ===
+          "POST"
+      ) {
+
+        return await closurePlan(
+          request,
+          env
+        );
+
+      }
+
+
+      /*
+       * AI next step
+       */
+
+      if (
+        url.pathname ===
+          "/api/ai/next-step" &&
+        request.method ===
+          "POST"
+      ) {
+
+        return await nextStep(
+          request,
+          env
+        );
+
+      }
+
+
+      /*
+       * Static website
+       */
+
+      if (
+        env.ASSETS
+      ) {
+
         return await env.ASSETS.fetch(
           request
         );
+
       }
+
 
       return json(
         {
           error:
-            "Static assets binding is not configured"
+            "Not found"
         },
-        500
+        404
       );
+
 
     } catch (err) {
 
@@ -607,14 +935,19 @@ export default {
         err
       );
 
+
       return json(
         {
           error:
             err?.message ||
             "Internal server error"
         },
+        err?.status ||
         500
       );
+
     }
+
   }
+
 };
