@@ -1,652 +1,872 @@
-const MODEL = "gemini-3.6-flash";
-const FALLBACK_MODEL = "gemini-2.5-flash-lite";
-
 /* =========================================================
-   Common JSON response
+   SR AI CHAT - CLOUDFLARE VERSION
    ========================================================= */
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=UTF-8",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
-    }
-  });
-}
+(function initAIChat() {
 
-/* =========================================================
-   Gemini API
-   ========================================================= */
-
-async function callGemini(env, model, prompt, jsonMode = false) {
-  if (!env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured in Cloudflare");
+  // Prevent duplicate initialization
+  if (document.getElementById("srAiChatPanel")) {
+    return;
   }
 
-  const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  /* =========================================================
+     CREATE FLOATING AI BUTTON
+     ========================================================= */
 
-  const generationConfig = {
-    temperature: 0.2
-  };
+  const chatButton = document.createElement("button");
 
-  if (jsonMode) {
-    generationConfig.responseMimeType = "application/json";
+  chatButton.id = "srAiChatButton";
+  chatButton.className = "ai-chat-button";
+  chatButton.type = "button";
+  chatButton.title = "Open SR AI Assistant";
+
+  chatButton.innerHTML = `
+    <span class="ai-chat-icon">✦</span>
+    <span class="ai-chat-badge">AI</span>
+  `;
+
+  document.body.appendChild(chatButton);
+
+
+  /* =========================================================
+     CREATE CHAT PANEL
+     ========================================================= */
+
+  const chatPanel = document.createElement("div");
+
+  chatPanel.id = "srAiChatPanel";
+  chatPanel.className = "ai-chat-panel";
+
+  chatPanel.innerHTML = `
+
+    <div class="ai-chat-header">
+
+      <div class="ai-chat-title">
+
+        <div class="ai-chat-avatar">
+          ✦
+        </div>
+
+        <div>
+          <strong>SR AI Assistant</strong>
+          <span>IT Helpdesk Closure Copilot</span>
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        class="ai-chat-close"
+        id="srAiChatClose"
+        title="Close"
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <div
+      class="ai-chat-messages"
+      id="srAiChatMessages"
+    >
+
+      <div class="ai-message">
+
+        <div class="ai-message-avatar">
+          AI
+        </div>
+
+        <div class="ai-message-content">
+
+          <div class="ai-message-name">
+            SR AI Assistant
+          </div>
+
+          <div class="ai-message-bubble">
+            Hi! I'm your SR Closure AI Assistant.
+            <br><br>
+            I can help you find quick-win SRs, decide what to work on
+            next, explain blockers, and prepare requester messages.
+            <br><br>
+            What would you like to know?
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="ai-chat-suggestions">
+
+      <button
+        type="button"
+        data-chat="What SRs should I close first?"
+      >
+        What should I close first?
+      </button>
+
+      <button
+        type="button"
+        data-chat="Show me the oldest open SRs."
+      >
+        Oldest SRs
+      </button>
+
+      <button
+        type="button"
+        data-chat="Find quick wins in my SR backlog."
+      >
+        Quick wins
+      </button>
+
+      <button
+        type="button"
+        data-chat="Which SRs need requester follow-up?"
+      >
+        Requester follow-up
+      </button>
+
+    </div>
+
+
+    <div class="ai-chat-input-area">
+
+      <input
+        id="srAiChatInput"
+        class="ai-chat-input"
+        type="text"
+        placeholder="Ask about your SRs..."
+        autocomplete="off"
+      />
+
+      <button
+        id="srAiChatSend"
+        class="ai-chat-send"
+        type="button"
+        title="Send"
+      >
+        ➤
+      </button>
+
+    </div>
+
+  `;
+
+  document.body.appendChild(chatPanel);
+
+
+  /* =========================================================
+     ELEMENTS
+     ========================================================= */
+
+  const closeButton =
+    document.getElementById("srAiChatClose");
+
+  const messages =
+    document.getElementById("srAiChatMessages");
+
+  const input =
+    document.getElementById("srAiChatInput");
+
+  const sendButton =
+    document.getElementById("srAiChatSend");
+
+
+  /* =========================================================
+     OPEN / CLOSE
+     ========================================================= */
+
+  function openChat() {
+
+    chatPanel.classList.add("open");
+
+    setTimeout(() => {
+      input.focus();
+    }, 150);
+
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": env.GEMINI_API_KEY
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: prompt
-            }
-          ]
+
+  function closeChat() {
+
+    chatPanel.classList.remove("open");
+
+  }
+
+
+  chatButton.addEventListener(
+    "click",
+    openChat
+  );
+
+
+  closeButton.addEventListener(
+    "click",
+    closeChat
+  );
+
+
+  /* =========================================================
+     GET CURRENT SR DATA
+     ========================================================= */
+
+  function getChatRequests() {
+
+    let requests = [];
+
+
+    /*
+     * First try common localStorage keys.
+     */
+
+    const possibleKeys = [
+      "srRequests",
+      "requests",
+      "srData",
+      "importedRequests",
+      "srTracker",
+      "sr_closure_requests",
+      "srClosureData"
+    ];
+
+
+    for (const key of possibleKeys) {
+
+      try {
+
+        const raw =
+          localStorage.getItem(key);
+
+        if (!raw) {
+          continue;
         }
-      ],
-      generationConfig
-    })
-  });
 
-  let data;
 
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("Gemini returned an invalid server response");
-  }
+        const parsed =
+          JSON.parse(raw);
 
-  if (!response.ok) {
-    const error = new Error(
-      data?.error?.message ||
-      `Gemini API request failed with status ${response.status}`
-    );
 
-    error.status = response.status;
-    throw error;
-  }
+        if (Array.isArray(parsed)) {
 
-  const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          requests = parsed;
 
-  if (!text) {
-    throw new Error("Gemini returned an empty response");
-  }
+          if (requests.length) {
+            break;
+          }
 
-  return text;
-}
-
-/* =========================================================
-   JSON extractor
-   ========================================================= */
-
-function extractJson(text) {
-  const cleaned = String(text || "")
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "");
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-
-    if (start >= 0 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1));
-    }
-
-    throw new Error("Gemini returned invalid JSON");
-  }
-}
-
-/* =========================================================
-   JSON AI generation
-   ========================================================= */
-
-async function generate(env, prompt) {
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const text = await callGemini(
-        env,
-        MODEL,
-        prompt,
-        true
-      );
-
-      return extractJson(text);
-
-    } catch (err) {
-      lastError = err;
-
-      console.error(
-        `Gemini primary attempt ${attempt} failed:`,
-        err.message
-      );
-
-      if (err.status !== 429 && err.status !== 503) {
-        throw err;
-      }
-
-      if (attempt < 2) {
-        await new Promise(resolve =>
-          setTimeout(resolve, 1800)
-        );
-      }
-    }
-  }
-
-  if (
-    FALLBACK_MODEL &&
-    FALLBACK_MODEL !== MODEL
-  ) {
-    try {
-      console.log(
-        `Trying fallback model: ${FALLBACK_MODEL}`
-      );
-
-      const text = await callGemini(
-        env,
-        FALLBACK_MODEL,
-        prompt,
-        true
-      );
-
-      return extractJson(text);
-
-    } catch (err) {
-      lastError = err;
-
-      console.error(
-        "Fallback model failed:",
-        err.message
-      );
-    }
-  }
-
-  if (
-    lastError?.status === 429 ||
-    lastError?.status === 503
-  ) {
-    throw new Error(
-      "Gemini is temporarily busy or rate-limited. Please try again."
-    );
-  }
-
-  throw lastError ||
-    new Error("Gemini analysis failed");
-}
-
-/* =========================================================
-   CHAT AI
-   ========================================================= */
-
-async function generateChat(env, message, context) {
-  const safeContext = {
-    today: context?.today || "",
-    target: context?.target || 10,
-    closedToday: context?.closedToday || 0,
-    openCount: context?.openCount || 0,
-    deadline: context?.deadline || "2027-01-01",
-
-    requests: Array.isArray(context?.requests)
-      ? context.requests.slice(0, 80)
-      : []
-  };
-
-  const prompt = `
-You are "SR AI Assistant", an expert IT Helpdesk Service Request
-Closure Copilot.
-
-You are assisting a technician who manages service requests.
-
-Your job is to answer questions about the technician's SR backlog,
-prioritize work, explain next steps, identify SLA risks, suggest
-legitimate closure actions, and draft requester messages.
-
-IMPORTANT RULES:
-
-1. Never invent a resolution.
-2. Never claim that an SR is fixed unless the supplied data proves it.
-3. Never recommend false closure.
-4. Do not fabricate SR numbers, dates, users, sites or technical facts.
-5. If the data does not contain enough information, clearly say so.
-6. Prefer practical IT helpdesk actions.
-7. For closure recommendations, explain what evidence or requester
-   confirmation is required.
-8. If an SR is waiting for requester/vendor, say that clearly.
-9. If the user asks "what should I close first", prioritize legitimate
-   quick wins while considering age, stale updates, readiness and blockers.
-10. Keep answers concise and useful.
-11. You can refer to the supplied SR data directly.
-12. You are an assistant, not an authority to falsely close tickets.
-
-CURRENT DASHBOARD:
-
-${JSON.stringify(safeContext, null, 2)}
-
-USER QUESTION:
-
-${message}
-
-Answer naturally like an experienced IT Helpdesk team lead.
-
-When useful, structure the response using short headings and bullet
-points.
-
-If discussing a specific SR, include its SR ID.
-
-Do not return JSON.
-Return normal human-readable text.
-`;
-
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      return await callGemini(
-        env,
-        MODEL,
-        prompt,
-        false
-      );
-
-    } catch (err) {
-      lastError = err;
-
-      console.error(
-        `Chat Gemini attempt ${attempt} failed:`,
-        err.message
-      );
-
-      if (err.status !== 429 && err.status !== 503) {
-        throw err;
-      }
-
-      if (attempt < 2) {
-        await new Promise(resolve =>
-          setTimeout(resolve, 1800)
-        );
-      }
-    }
-  }
-
-  if (
-    FALLBACK_MODEL &&
-    FALLBACK_MODEL !== MODEL
-  ) {
-    try {
-      console.log(
-        `Chat using fallback model: ${FALLBACK_MODEL}`
-      );
-
-      return await callGemini(
-        env,
-        FALLBACK_MODEL,
-        prompt,
-        false
-      );
-
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  if (
-    lastError?.status === 429 ||
-    lastError?.status === 503
-  ) {
-    throw new Error(
-      "Gemini is temporarily busy. Please wait a moment and try again."
-    );
-  }
-
-  throw lastError ||
-    new Error("AI chat failed");
-}
-
-/* =========================================================
-   AI CHAT ROUTE
-   ========================================================= */
-
-async function chat(request, env) {
-  const body = await request.json();
-
-  const message =
-    typeof body.message === "string"
-      ? body.message.trim()
-      : "";
-
-  if (!message) {
-    return json(
-      {
-        error: "Chat message is required"
-      },
-      400
-    );
-  }
-
-  if (message.length > 2000) {
-    return json(
-      {
-        error: "Chat message is too long"
-      },
-      400
-    );
-  }
-
-  const context =
-    body.context &&
-    typeof body.context === "object"
-      ? body.context
-      : {};
-
-  const reply = await generateChat(
-    env,
-    message,
-    context
-  );
-
-  return json({
-    ok: true,
-    reply
-  });
-}
-
-/* =========================================================
-   AI CLOSURE PLAN
-   ========================================================= */
-
-async function closurePlan(request, env) {
-  const body = await request.json();
-
-  const requests =
-    Array.isArray(body.requests)
-      ? body.requests
-      : [];
-
-  if (!requests.length) {
-    return json(
-      {
-        error: "No SRs supplied"
-      },
-      400
-    );
-  }
-
-  const simplified = requests.map(sr => ({
-    id: sr.id,
-    subject: sr.subject,
-    requester: sr.requester,
-    technician: sr.technician,
-    status: sr.status,
-    priority: sr.priority,
-    site: sr.site,
-    category: sr.category,
-    created: sr.created,
-    updated: sr.updated,
-    ageDays: sr.ageDays,
-    stage: sr.myStage,
-    nextAction: sr.nextAction,
-    resolution: sr.resolution,
-    notes: sr.notes
-  }));
-
-  const prompt = `
-You are an expert IT Helpdesk Service Request Closure Assistant.
-
-Your goal is to help a technician legitimately close as many service
-requests as possible.
-
-Rank the best 10 SRs to work on first.
-
-Rules:
-
-- Never invent that an issue is fixed.
-- Never recommend false closure.
-- Prefer quick legitimate wins.
-- Prefer requester-confirmation cases.
-- Consider age.
-- Consider stale updates.
-- Consider current stage.
-- Consider subject.
-- Consider blockers.
-- Consider likely effort.
-- Old SRs matter, but do not prioritize an old blocked SR over a
-  simple closable SR.
-- Give a concrete next action.
-- State exactly what evidence or confirmation is needed.
-- If requester/vendor action is needed, say so.
-- Only recommend closure when the supplied data supports it.
-
-Return ONLY JSON:
-
-{
-  "recommendations": [
-    {
-      "rank": 1,
-      "requestId": "SR-ID",
-      "closureChance": "High",
-      "estimatedMinutes": 10,
-      "reason": "short reason",
-      "nextAction": "specific action",
-      "closureEvidence": "required evidence",
-      "suggestedMessage": "short requester message",
-      "risk": "Low"
-    }
-  ]
-}
-
-SR DATA:
-
-${JSON.stringify(simplified, null, 2)}
-`;
-
-  return json(
-    await generate(env, prompt)
-  );
-}
-
-/* =========================================================
-   AI NEXT STEP
-   ========================================================= */
-
-async function nextStep(request, env) {
-  const body = await request.json();
-
-  const sr = body.sr;
-
-  if (!sr) {
-    return json(
-      {
-        error: "SR data is required"
-      },
-      400
-    );
-  }
-
-  const prompt = `
-You are an IT Helpdesk closure assistant.
-
-Analyze this one service request and give the fastest legitimate
-next step.
-
-Never invent a resolution.
-
-Do not say the issue is fixed unless the supplied data proves it.
-
-Return ONLY JSON:
-
-{
-  "priority": "High|Medium|Low",
-  "closureChance": "High|Medium|Low",
-  "estimatedMinutes": 10,
-  "nextAction": "What technician should do next",
-  "requesterMessage": "Short message to requester",
-  "closureEvidence": "What must be confirmed before closure",
-  "resolutionTemplate": "Resolution text template",
-  "reason": "Why this is recommended"
-}
-
-SR:
-
-${JSON.stringify(sr, null, 2)}
-`;
-
-  return json(
-    await generate(env, prompt)
-  );
-}
-
-/* =========================================================
-   CLOUDFLARE WORKER
-   ========================================================= */
-
-export default {
-
-  async fetch(request, env) {
-
-    const url = new URL(request.url);
-
-    /* -----------------------------------------------------
-       CORS
-       ----------------------------------------------------- */
-
-    if (request.method === "OPTIONS") {
-
-      return new Response(null, {
-        status: 204,
-
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods":
-            "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers":
-            "Content-Type"
         }
-      });
+
+
+        if (
+          parsed &&
+          Array.isArray(parsed.requests)
+        ) {
+
+          requests =
+            parsed.requests;
+
+          if (requests.length) {
+            break;
+          }
+
+        }
+
+      } catch (error) {
+
+        console.warn(
+          "Could not read localStorage:",
+          key,
+          error
+        );
+
+      }
 
     }
 
-    try {
 
-      /* ---------------------------------------------------
-         HEALTH CHECK
-         --------------------------------------------------- */
+    /*
+     * Try global application arrays.
+     */
 
-      if (
-        url.pathname === "/api/health" &&
-        request.method === "GET"
-      ) {
+    if (
+      !requests.length &&
+      Array.isArray(window.requests)
+    ) {
 
-        return json({
-          ok: true,
-          ai: Boolean(env.GEMINI_API_KEY),
-          provider: "Google Gemini",
-          model: MODEL,
-          fallbackModel: FALLBACK_MODEL
-        });
+      requests =
+        window.requests;
 
-      }
+    }
 
-      /* ---------------------------------------------------
-         AI CHAT
-         --------------------------------------------------- */
 
-      if (
-        url.pathname === "/api/ai/chat" &&
-        request.method === "POST"
-      ) {
+    if (
+      !requests.length &&
+      Array.isArray(window.srRequests)
+    ) {
 
-        return await chat(
-          request,
-          env
+      requests =
+        window.srRequests;
+
+    }
+
+
+    /*
+     * Try common application variables.
+     */
+
+    if (
+      !requests.length &&
+      typeof window.getRequests === "function"
+    ) {
+
+      try {
+
+        const result =
+          window.getRequests();
+
+        if (Array.isArray(result)) {
+
+          requests =
+            result;
+
+        }
+
+      } catch (error) {
+
+        console.warn(
+          "getRequests() failed:",
+          error
         );
 
       }
 
-      /* ---------------------------------------------------
-         AI CLOSURE PLAN
-         --------------------------------------------------- */
+    }
 
-      if (
-        url.pathname === "/api/ai/closure-plan" &&
-        request.method === "POST"
-      ) {
 
-        return await closurePlan(
-          request,
-          env
-        );
+    return requests;
 
-      }
+  }
 
-      /* ---------------------------------------------------
-         AI NEXT STEP
-         --------------------------------------------------- */
 
-      if (
-        url.pathname === "/api/ai/next-step" &&
-        request.method === "POST"
-      ) {
+  /* =========================================================
+     GET DASHBOARD CONTEXT
+     ========================================================= */
 
-        return await nextStep(
-          request,
-          env
-        );
+  function getChatContext() {
 
-      }
+    const requests =
+      getChatRequests();
 
-      /* ---------------------------------------------------
-         STATIC FILES
-         --------------------------------------------------- */
 
-      if (env.ASSETS) {
+    const openCount =
+      document.getElementById("openCount")
+        ?.textContent || "0";
 
-        return await env.ASSETS.fetch(
-          request
-        );
 
-      }
+    const closedToday =
+      document.getElementById("closedToday")
+        ?.textContent || "0";
 
-      return json(
-        {
-          error:
-            "Static assets binding is not configured"
-        },
-        500
+
+    const target =
+      document.getElementById("targetInput")
+        ?.value || "10";
+
+
+    const ready =
+      document.getElementById("ready")
+        ?.textContent || "0";
+
+
+    const old60 =
+      document.getElementById("old60")
+        ?.textContent || "0";
+
+
+    const old30 =
+      document.getElementById("old30")
+        ?.textContent || "0";
+
+
+    const stale =
+      document.getElementById("stale")
+        ?.textContent || "0";
+
+
+    /*
+     * Send only a reasonable amount of data.
+     * This prevents huge Gemini requests.
+     */
+
+    const limitedRequests =
+      requests.slice(0, 100);
+
+
+    return {
+
+      today:
+        new Date()
+          .toISOString()
+          .slice(0, 10),
+
+      deadline:
+        "2027-01-01",
+
+      target:
+        Number(target) || 10,
+
+      closedToday:
+        Number(closedToday) || 0,
+
+      dashboard: {
+
+        open:
+          Number(openCount) || 0,
+
+        readyToClose:
+          Number(ready) || 0,
+
+        old60:
+          Number(old60) || 0,
+
+        old30:
+          Number(old30) || 0,
+
+        stale:
+          Number(stale) || 0
+
+      },
+
+      totalRequests:
+        requests.length,
+
+      requests:
+        limitedRequests
+
+    };
+
+  }
+
+
+  /* =========================================================
+     ADD MESSAGE
+     ========================================================= */
+
+  function addMessage(
+    text,
+    type = "ai"
+  ) {
+
+    const wrapper =
+      document.createElement("div");
+
+
+    wrapper.className =
+      type === "user"
+        ? "ai-message ai-message-user"
+        : "ai-message";
+
+
+    const avatar =
+      document.createElement("div");
+
+
+    avatar.className =
+      "ai-message-avatar";
+
+
+    avatar.textContent =
+      type === "user"
+        ? "You"
+        : "AI";
+
+
+    const content =
+      document.createElement("div");
+
+
+    content.className =
+      "ai-message-content";
+
+
+    const name =
+      document.createElement("div");
+
+
+    name.className =
+      "ai-message-name";
+
+
+    name.textContent =
+      type === "user"
+        ? "You"
+        : "SR AI Assistant";
+
+
+    const bubble =
+      document.createElement("div");
+
+
+    bubble.className =
+      "ai-message-bubble";
+
+
+    /*
+     * Escape HTML.
+     */
+
+    const safeText =
+      String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br>");
+
+
+    bubble.innerHTML =
+      safeText;
+
+
+    content.appendChild(name);
+    content.appendChild(bubble);
+
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(content);
+
+    messages.appendChild(wrapper);
+
+
+    messages.scrollTop =
+      messages.scrollHeight;
+
+  }
+
+
+  /* =========================================================
+     THINKING INDICATOR
+     ========================================================= */
+
+  function showThinking() {
+
+    hideThinking();
+
+
+    const wrapper =
+      document.createElement("div");
+
+
+    wrapper.id =
+      "aiThinkingMessage";
+
+
+    wrapper.className =
+      "ai-message";
+
+
+    wrapper.innerHTML = `
+
+      <div class="ai-message-avatar">
+        AI
+      </div>
+
+      <div class="ai-message-content">
+
+        <div class="ai-message-name">
+          SR AI Assistant
+        </div>
+
+        <div class="ai-chat-thinking">
+
+          <span></span>
+          <span></span>
+          <span></span>
+
+        </div>
+
+      </div>
+
+    `;
+
+
+    messages.appendChild(wrapper);
+
+
+    messages.scrollTop =
+      messages.scrollHeight;
+
+  }
+
+
+  function hideThinking() {
+
+    const thinking =
+      document.getElementById(
+        "aiThinkingMessage"
       );
 
-    } catch (err) {
 
-      console.error(
-        "Worker error:",
-        err
-      );
+    if (thinking) {
 
-      return json(
-        {
-          error:
-            err?.message ||
-            "Internal server error"
-        },
-        500
-      );
+      thinking.remove();
 
     }
 
   }
 
-};
+
+  /* =========================================================
+     SEND MESSAGE TO CLOUDFLARE WORKER
+     ========================================================= */
+
+  async function sendMessage(
+    customMessage = null
+  ) {
+
+    const message =
+      String(
+        customMessage ??
+        input.value ??
+        ""
+      ).trim();
+
+
+    if (!message) {
+      return;
+    }
+
+
+    input.value = "";
+
+
+    addMessage(
+      message,
+      "user"
+    );
+
+
+    showThinking();
+
+
+    sendButton.disabled = true;
+    input.disabled = true;
+
+
+    try {
+
+      const context =
+        getChatContext();
+
+
+      console.log(
+        "🤖 Sending AI chat request",
+        {
+          message,
+          context
+        }
+      );
+
+
+      const response =
+        await fetch(
+          "/api/ai/chat",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+                message,
+                context
+              })
+          }
+        );
+
+
+      let data;
+
+
+      try {
+
+        data =
+          await response.json();
+
+      } catch {
+
+        throw new Error(
+          "Cloudflare returned an invalid response."
+        );
+
+      }
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data?.error ||
+          `AI request failed (${response.status})`
+        );
+
+      }
+
+
+      if (!data?.reply) {
+
+        throw new Error(
+          "AI returned an empty response."
+        );
+
+      }
+
+
+      hideThinking();
+
+
+      addMessage(
+        data.reply,
+        "ai"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "❌ AI chat error:",
+        error
+      );
+
+
+      hideThinking();
+
+
+      addMessage(
+        "❌ " +
+        (
+          error?.message ||
+          "AI chat could not complete the request."
+        ),
+        "ai"
+      );
+
+
+    } finally {
+
+      sendButton.disabled = false;
+      input.disabled = false;
+
+      input.focus();
+
+    }
+
+  }
+
+
+  /* =========================================================
+     SEND BUTTON
+     ========================================================= */
+
+  sendButton.addEventListener(
+    "click",
+    () => {
+      sendMessage();
+    }
+  );
+
+
+  /* =========================================================
+     ENTER KEY
+     ========================================================= */
+
+  input.addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+
+        event.preventDefault();
+
+        sendMessage();
+
+      }
+
+    }
+  );
+
+
+  /* =========================================================
+     QUICK QUESTIONS
+     ========================================================= */
+
+  document
+    .querySelectorAll(
+      ".ai-chat-suggestions button"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          const question =
+            button.dataset.chat;
+
+
+          if (question) {
+
+            sendMessage(
+              question
+            );
+
+          }
+
+        }
+      );
+
+    });
+
+
+  /* =========================================================
+     ESCAPE TO CLOSE
+     ========================================================= */
+
+  document.addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key === "Escape" &&
+        chatPanel.classList.contains("open")
+      ) {
+
+        closeChat();
+
+      }
+
+    }
+  );
+
+
+  /* =========================================================
+     DEBUG
+     ========================================================= */
+
+  console.log(
+    "✅ SR AI Chat initialized"
+  );
+
+  console.log(
+    "📊 SR records available to AI:",
+    getChatRequests().length
+  );
+
+
+})();
