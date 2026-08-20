@@ -1,164 +1,1048 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SR Closure Manager</title>
-<link rel="stylesheet" href="style.css?v=20260820-final">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <title>SR Closure Manager</title>
+
+  <link rel="stylesheet" href="style.css?v=20260820-chat1">
 </head>
+
 <body>
+
 <div class="app">
-<aside class="sidebar">
-  <div class="brand"><div class="mark">SR</div><div><h1>SR Closure</h1><small>Personal IT Helpdesk Manager</small></div></div>
-  <nav>
-    <button class="nav active" data-view="dashboard">Dashboard</button>
-    <button class="nav" data-view="queue">Closure Queue</button>
-    <button class="nav" data-view="all">All Requests</button>
-    <button class="nav" data-view="updates">My Updates</button>
-    <button class="nav" data-view="reports">Reports</button>
-  </nav>
-  <div class="side-deadline">
-    <span class="side-deadline-label">🎯 Cleanup deadline</span>
-    <strong>1 January 2027</strong>
-    <div class="side-deadline-stats">
-      <span><b id="daysRemainingSide">--</b> days left</span>
-      <span><b id="dailyRequiredSide">0</b> SR/day needed</span>
+
+  <!-- =====================================================
+       SIDEBAR
+       ===================================================== -->
+
+  <aside class="sidebar">
+
+    <div class="brand">
+      <div class="mark">SR</div>
+
+      <div>
+        <h1>SR Closure</h1>
+        <small>Personal IT Helpdesk Manager</small>
+      </div>
     </div>
-  </div>
-  <div class="side-bottom">
-    <label class="nav file-btn">Import New CSV<input id="csvInput" type="file" accept=".csv,text/csv"></label>
-    <button class="nav" id="exportBtn">Export My Tracker</button>
-    <button class="nav" id="resetBtn">Reset Imported Data</button>
-    <div class="local"><b>Local tracker</b><span>Your work notes are stored in this browser.</span></div>
-  </div>
-</aside>
 
-<main class="main">
-<header class="topbar">
-  <div><div class="eyebrow">SERVICE REQUEST CLOSURE CONTROL</div><h2 id="pageTitle">Dashboard</h2></div>
-  <div class="top-actions">
-    <label class="target">Today's target <input id="targetInput" type="number" min="1" value="10"></label>
-    <label class="primary import-top" title="Import your SR export CSV">📥 Import SR CSV<input id="topCsvInput" type="file" accept=".csv,text/csv"></label>
-  </div>
-</header>
+    <nav>
 
-<div class="deadline-banner">
-  <div class="deadline-copy">
-    <span class="deadline-label">🎯 BACKLOG CLEANUP DEADLINE</span>
-    <strong>1 January 2027</strong>
-    <small>Goal: clear all open SRs before the deadline.</small>
-  </div>
-  <div class="deadline-stats">
-    <span><b id="daysRemaining">--</b><small>days left</small></span>
-    <span><b id="dailyRequired">0</b><small>SR/day needed</small></span>
-  </div>
-</div>
+      <button class="nav active" data-view="dashboard">
+        Dashboard
+      </button>
 
-<section id="dashboardView" class="view">
-  <div class="cards">
-    <div class="card"><span>Open SRs</span><strong id="openCount">0</strong></div>
-    <div class="card red"><span>60+ Days Old</span><strong id="old60">0</strong></div>
-    <div class="card amber"><span>30+ Days Old</span><strong id="old30">0</strong></div>
-    <div class="card blue"><span>Stale Updates</span><strong id="stale">0</strong></div>
-    <div class="card green"><span>Ready to Close</span><strong id="ready">0</strong></div>
-  </div>
+      <button class="nav" data-view="queue">
+        Closure Queue
+      </button>
 
-  <div class="panel ai-panel">
-    <div class="panel-head"><div><h3>🤖 AI Closure Copilot</h3><p>Find the SRs most likely to close quickly and explain the next action.</p></div><button class="primary" id="aiSuggestBtn">Suggest Fast Closures</button></div>
-    <div id="aiSuggestions"><div class="empty">Import your SR CSV, then click <b>Suggest Fast Closures</b> for Gemini analysis.</div></div>
-  </div>
+      <button class="nav" data-view="all">
+        All Requests
+      </button>
 
-  <div class="hero panel">
-    <div><h3>Today's Closure Mission</h3><p>Focus on quick wins first, then work the oldest blockers.</p></div>
-    <div class="mission"><strong id="closedToday">0</strong><span>closed today</span><div class="mission-bar"><span id="missionBar"></span></div><small id="missionText">Target: 10</small></div>
-  </div>
+      <button class="nav" data-view="updates">
+        My Updates
+      </button>
 
-  <div class="two">
-    <div class="panel">
-      <div class="panel-head"><div><h3>Recommended Next Actions</h3><p>Automatically ranked from age, update freshness and subject.</p></div><button class="ghost" id="refreshBtn">Refresh</button></div>
-      <div id="recommendations"></div>
+      <button class="nav" data-view="reports">
+        Reports
+      </button>
+
+    </nav>
+
+    <div class="side-deadline">
+
+      <span class="side-deadline-label">
+        🎯 Cleanup deadline
+      </span>
+
+      <strong>1 January 2027</strong>
+
+      <div class="side-deadline-stats">
+
+        <span>
+          <b id="daysRemainingSide">--</b>
+          days left
+        </span>
+
+        <span>
+          <b id="dailyRequiredSide">0</b>
+          SR/day needed
+        </span>
+
+      </div>
+
     </div>
-    <div class="panel">
-      <div class="panel-head"><div><h3>Quick Wins</h3><p>Likely easier requests to close first.</p></div></div>
-      <div id="quickWins"></div>
-    </div>
-  </div>
 
-  <div class="panel">
-    <div class="panel-head"><div><h3>Oldest Open SRs</h3><p>Start here when clearing backlog.</p></div></div>
-    <div id="oldestTable"></div>
-  </div>
-</section>
+    <div class="side-bottom">
 
-<section id="queueView" class="view hidden">
-  <div class="panel">
-    <div class="panel-head"><div><h3>Closure Queue</h3><p>Work queue ranked by closure score.</p></div></div>
-    <div class="toolbar">
-      <select id="queueFilter"><option value="all">All</option><option value="quick">Quick Wins</option><option value="old">30+ Days</option><option value="stale">Stale Updates</option><option value="ready">Ready to Close</option><option value="blocked">Blocked / Waiting</option></select>
-      <select id="stageFilter"><option value="">All stages</option><option>New</option><option>Working</option><option>Waiting Requester</option><option>Waiting Vendor</option><option>Blocked</option><option>Ready to Close</option><option>Closed in Tracker</option></select>
-      <input id="queueSearch" placeholder="Search SR, subject, requester, site...">
-    </div>
-    <div id="queueTable"></div>
-  </div>
-</section>
-
-<section id="allView" class="view hidden">
-  <div class="panel">
-    <div class="panel-head"><div><h3>All Requests</h3><p>Your imported service requests.</p></div></div>
-    <div class="toolbar">
-      <input id="allSearch" placeholder="Search anything...">
-      <select id="catFilter"><option value="">All categories</option></select>
-      <select id="siteFilter"><option value="">All sites</option></select>
-      <select id="priorityFilter"><option value="">All priorities</option></select>
-    </div>
-    <div id="allTable"></div>
-  </div>
-</section>
-
-<section id="updatesView" class="view hidden">
-  <div class="panel">
-    <div class="panel-head"><div><h3>My Updates</h3><p>Your internal closure work log.</p></div></div>
-    <div id="updatesTable"></div>
-  </div>
-</section>
-
-<section id="reportsView" class="view hidden">
-  <div class="report-grid">
-    <div class="report-card"><span>Open</span><strong id="rOpen">0</strong></div>
-    <div class="report-card"><span>Closed in Tracker</span><strong id="rClosed">0</strong></div>
-    <div class="report-card"><span>Waiting Requester</span><strong id="rRequester">0</strong></div>
-    <div class="report-card"><span>Waiting Vendor</span><strong id="rVendor">0</strong></div>
-  </div>
-  <div class="panel"><div class="panel-head"><div><h3>Category Backlog</h3></div></div><div id="categoryReport"></div></div>
-</section>
-</main>
-</div>
-
-<div class="modal hidden" id="srModal">
-<div class="modal-box">
-  <div class="modal-head"><div><h3 id="modalTitle">Work SR</h3><p id="modalSubtitle"></p></div><button class="close" data-close="srModal">×</button></div>
-  <form id="srForm">
-    <input type="hidden" id="srId">
-    <div class="sr-info" id="srInfo"></div>
-    <div class="grid">
-      <label>My Stage
-        <select id="myStage"><option>New</option><option>Working</option><option>Waiting Requester</option><option>Waiting Vendor</option><option>Blocked</option><option>Ready to Close</option><option>Closed in Tracker</option></select>
+      <label class="nav file-btn">
+        Import New CSV
+        <input
+          id="csvInput"
+          type="file"
+          accept=".csv,text/csv"
+        >
       </label>
-      <label>Follow-up Date<input id="followupDate" type="date"></label>
-      <label class="wide">Next Action<input id="nextAction" placeholder="Example: Call requester and confirm printer is working"></label>
-      <label class="wide">Resolution / Closure Note<textarea id="resolution" placeholder="Record what was fixed and what should be entered before closing the SR."></textarea></label>
-      <label class="wide">My Update / Notes<textarea id="notes" placeholder="What did you do today? Vendor contacted? Requester confirmation?"></textarea></label>
-      <label class="wide">AI Closure Suggestion<div id="aiWorkSuggestion" class="ai-work">Open this SR and click AI Suggestion to generate guidance.</div></label>
-      <label class="check"><input id="closeReady" type="checkbox"> I have enough confirmation/evidence to close this SR</label>
+
+      <button class="nav" id="exportBtn">
+        Export My Tracker
+      </button>
+
+      <button class="nav" id="resetBtn">
+        Reset Imported Data
+      </button>
+
+      <div class="local">
+        <b>Local tracker</b>
+        <span>Your work notes are stored in this browser.</span>
+      </div>
+
     </div>
-    <div class="form-actions"><button type="button" class="ghost" id="aiWorkBtn">🤖 AI Suggest Next Step</button><button type="button" class="ghost" data-close="srModal">Cancel</button><button class="primary">Save Work Update</button></div>
-  </form>
-</div>
+
+  </aside>
+
+
+  <!-- =====================================================
+       MAIN
+       ===================================================== -->
+
+  <main class="main">
+
+    <header class="topbar">
+
+      <div>
+
+        <div class="eyebrow">
+          SERVICE REQUEST CLOSURE CONTROL
+        </div>
+
+        <h2 id="pageTitle">
+          Dashboard
+        </h2>
+
+      </div>
+
+      <div class="top-actions">
+
+        <label class="target">
+          Today's target
+          <input
+            id="targetInput"
+            type="number"
+            min="1"
+            value="10"
+          >
+        </label>
+
+        <label
+          class="primary import-top"
+          title="Import your SR export CSV"
+        >
+          📥 Import SR CSV
+
+          <input
+            id="topCsvInput"
+            type="file"
+            accept=".csv,text/csv"
+          >
+        </label>
+
+      </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         DEADLINE BANNER
+         ===================================================== -->
+
+    <div class="deadline-banner">
+
+      <div class="deadline-copy">
+
+        <span class="deadline-label">
+          🎯 BACKLOG CLEANUP DEADLINE
+        </span>
+
+        <strong>
+          1 January 2027
+        </strong>
+
+        <small>
+          Goal: clear all open SRs before the deadline.
+        </small>
+
+      </div>
+
+      <div class="deadline-stats">
+
+        <span>
+          <b id="daysRemaining">--</b>
+          <small>days left</small>
+        </span>
+
+        <span>
+          <b id="dailyRequired">0</b>
+          <small>SR/day needed</small>
+        </span>
+
+      </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         DASHBOARD
+         ===================================================== -->
+
+    <section
+      id="dashboardView"
+      class="view"
+    >
+
+      <div class="cards">
+
+        <div class="card">
+          <span>Open SRs</span>
+          <strong id="openCount">0</strong>
+        </div>
+
+        <div class="card red">
+          <span>60+ Days Old</span>
+          <strong id="old60">0</strong>
+        </div>
+
+        <div class="card amber">
+          <span>30+ Days Old</span>
+          <strong id="old30">0</strong>
+        </div>
+
+        <div class="card blue">
+          <span>Stale Updates</span>
+          <strong id="stale">0</strong>
+        </div>
+
+        <div class="card green">
+          <span>Ready to Close</span>
+          <strong id="ready">0</strong>
+        </div>
+
+      </div>
+
+
+      <!-- ===================================================
+           AI CLOSURE COPILOT
+           =================================================== -->
+
+      <div class="panel ai-panel">
+
+        <div class="panel-head">
+
+          <div>
+
+            <h3>
+              🤖 AI Closure Copilot
+            </h3>
+
+            <p>
+              Find the SRs most likely to close quickly
+              and explain the next action.
+            </p>
+
+          </div>
+
+          <button
+            class="primary"
+            id="aiSuggestBtn"
+          >
+            Suggest Fast Closures
+          </button>
+
+        </div>
+
+        <div id="aiSuggestions">
+
+          <div class="empty">
+            Import your SR CSV, then click
+            <b>Suggest Fast Closures</b>
+            for Gemini analysis.
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- ===================================================
+           TODAY'S CLOSURE MISSION
+           =================================================== -->
+
+      <div class="hero panel">
+
+        <div>
+
+          <h3>
+            Today's Closure Mission
+          </h3>
+
+          <p>
+            Focus on quick wins first, then work
+            the oldest blockers.
+          </p>
+
+        </div>
+
+        <div class="mission">
+
+          <strong id="closedToday">
+            0
+          </strong>
+
+          <span>
+            closed today
+          </span>
+
+          <div class="mission-bar">
+            <span id="missionBar"></span>
+          </div>
+
+          <small id="missionText">
+            Target: 10
+          </small>
+
+        </div>
+
+      </div>
+
+
+      <!-- ===================================================
+           RECOMMENDATIONS + QUICK WINS
+           =================================================== -->
+
+      <div class="two">
+
+        <div class="panel">
+
+          <div class="panel-head">
+
+            <div>
+
+              <h3>
+                Recommended Next Actions
+              </h3>
+
+              <p>
+                Automatically ranked from age,
+                update freshness and subject.
+              </p>
+
+            </div>
+
+            <button
+              class="ghost"
+              id="refreshBtn"
+            >
+              Refresh
+            </button>
+
+          </div>
+
+          <div id="recommendations"></div>
+
+        </div>
+
+
+        <div class="panel">
+
+          <div class="panel-head">
+
+            <div>
+
+              <h3>
+                Quick Wins
+              </h3>
+
+              <p>
+                Likely easier requests to close first.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div id="quickWins"></div>
+
+        </div>
+
+      </div>
+
+
+      <!-- ===================================================
+           OLDEST SRs
+           =================================================== -->
+
+      <div class="panel">
+
+        <div class="panel-head">
+
+          <div>
+
+            <h3>
+              Oldest Open SRs
+            </h3>
+
+            <p>
+              Start here when clearing backlog.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div id="oldestTable"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         CLOSURE QUEUE
+         ===================================================== -->
+
+    <section
+      id="queueView"
+      class="view hidden"
+    >
+
+      <div class="panel">
+
+        <div class="panel-head">
+
+          <div>
+
+            <h3>
+              Closure Queue
+            </h3>
+
+            <p>
+              Work queue ranked by closure score.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div class="toolbar">
+
+          <select id="queueFilter">
+
+            <option value="all">
+              All
+            </option>
+
+            <option value="quick">
+              Quick Wins
+            </option>
+
+            <option value="old">
+              30+ Days
+            </option>
+
+            <option value="stale">
+              Stale Updates
+            </option>
+
+            <option value="ready">
+              Ready to Close
+            </option>
+
+            <option value="blocked">
+              Blocked / Waiting
+            </option>
+
+          </select>
+
+
+          <select id="stageFilter">
+
+            <option value="">
+              All stages
+            </option>
+
+            <option>
+              New
+            </option>
+
+            <option>
+              Working
+            </option>
+
+            <option>
+              Waiting Requester
+            </option>
+
+            <option>
+              Waiting Vendor
+            </option>
+
+            <option>
+              Blocked
+            </option>
+
+            <option>
+              Ready to Close
+            </option>
+
+            <option>
+              Closed in Tracker
+            </option>
+
+          </select>
+
+
+          <input
+            id="queueSearch"
+            placeholder="Search SR, subject, requester, site..."
+          >
+
+        </div>
+
+        <div id="queueTable"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         ALL REQUESTS
+         ===================================================== -->
+
+    <section
+      id="allView"
+      class="view hidden"
+    >
+
+      <div class="panel">
+
+        <div class="panel-head">
+
+          <div>
+
+            <h3>
+              All Requests
+            </h3>
+
+            <p>
+              Your imported service requests.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div class="toolbar">
+
+          <input
+            id="allSearch"
+            placeholder="Search anything..."
+          >
+
+          <select id="catFilter">
+
+            <option value="">
+              All categories
+            </option>
+
+          </select>
+
+          <select id="siteFilter">
+
+            <option value="">
+              All sites
+            </option>
+
+          </select>
+
+          <select id="priorityFilter">
+
+            <option value="">
+              All priorities
+            </option>
+
+          </select>
+
+        </div>
+
+        <div id="allTable"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         MY UPDATES
+         ===================================================== -->
+
+    <section
+      id="updatesView"
+      class="view hidden"
+    >
+
+      <div class="panel">
+
+        <div class="panel-head">
+
+          <div>
+
+            <h3>
+              My Updates
+            </h3>
+
+            <p>
+              Your internal closure work log.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div id="updatesTable"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         REPORTS
+         ===================================================== -->
+
+    <section
+      id="reportsView"
+      class="view hidden"
+    >
+
+      <div class="report-grid">
+
+        <div class="report-card">
+          <span>Open</span>
+          <strong id="rOpen">0</strong>
+        </div>
+
+        <div class="report-card">
+          <span>Closed in Tracker</span>
+          <strong id="rClosed">0</strong>
+        </div>
+
+        <div class="report-card">
+          <span>Waiting Requester</span>
+          <strong id="rRequester">0</strong>
+        </div>
+
+        <div class="report-card">
+          <span>Waiting Vendor</span>
+          <strong id="rVendor">0</strong>
+        </div>
+
+      </div>
+
+
+      <div class="panel">
+
+        <div class="panel-head">
+
+          <div>
+            <h3>
+              Category Backlog
+            </h3>
+          </div>
+
+        </div>
+
+        <div id="categoryReport"></div>
+
+      </div>
+
+    </section>
+
+  </main>
+
 </div>
 
-<script src="app.js?v=20260820-final"></script>
+
+<!-- =========================================================
+     SR WORK MODAL
+     ========================================================= -->
+
+<div
+  class="modal hidden"
+  id="srModal"
+>
+
+  <div class="modal-box">
+
+    <div class="modal-head">
+
+      <div>
+
+        <h3 id="modalTitle">
+          Work SR
+        </h3>
+
+        <p id="modalSubtitle"></p>
+
+      </div>
+
+      <button
+        class="close"
+        data-close="srModal"
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <form id="srForm">
+
+      <input
+        type="hidden"
+        id="srId"
+      >
+
+
+      <div
+        class="sr-info"
+        id="srInfo"
+      ></div>
+
+
+      <div class="grid">
+
+        <label>
+          My Stage
+
+          <select id="myStage">
+
+            <option>
+              New
+            </option>
+
+            <option>
+              Working
+            </option>
+
+            <option>
+              Waiting Requester
+            </option>
+
+            <option>
+              Waiting Vendor
+            </option>
+
+            <option>
+              Blocked
+            </option>
+
+            <option>
+              Ready to Close
+            </option>
+
+            <option>
+              Closed in Tracker
+            </option>
+
+          </select>
+
+        </label>
+
+
+        <label>
+          Follow-up Date
+
+          <input
+            id="followupDate"
+            type="date"
+          >
+
+        </label>
+
+
+        <label class="wide">
+
+          Next Action
+
+          <input
+            id="nextAction"
+            placeholder="Example: Call requester and confirm printer is working"
+          >
+
+        </label>
+
+
+        <label class="wide">
+
+          Resolution / Closure Note
+
+          <textarea
+            id="resolution"
+            placeholder="Record what was fixed and what should be entered before closing the SR."
+          ></textarea>
+
+        </label>
+
+
+        <label class="wide">
+
+          My Update / Notes
+
+          <textarea
+            id="notes"
+            placeholder="What did you do today? Vendor contacted? Requester confirmation?"
+          ></textarea>
+
+        </label>
+
+
+        <label class="wide">
+
+          AI Closure Suggestion
+
+          <div
+            id="aiWorkSuggestion"
+            class="ai-work"
+          >
+            Open this SR and click AI Suggestion
+            to generate guidance.
+          </div>
+
+        </label>
+
+
+        <label class="check">
+
+          <input
+            id="closeReady"
+            type="checkbox"
+          >
+
+          I have enough confirmation/evidence
+          to close this SR
+
+        </label>
+
+      </div>
+
+
+      <div class="form-actions">
+
+        <button
+          type="button"
+          class="ghost"
+          id="aiWorkBtn"
+        >
+          🤖 AI Suggest Next Step
+        </button>
+
+        <button
+          type="button"
+          class="ghost"
+          data-close="srModal"
+        >
+          Cancel
+        </button>
+
+        <button class="primary">
+          Save Work Update
+        </button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     SR CLOSING AI - FLOATING CHAT BUTTON
+     ========================================================= -->
+
+<button
+  id="aiChatButton"
+  class="ai-chat-button"
+  type="button"
+  aria-label="Open SR Closing AI"
+  title="SR Closing AI"
+>
+
+  <span class="ai-chat-icon">
+    ✦
+  </span>
+
+  <span class="ai-chat-badge">
+    AI
+  </span>
+
+</button>
+
+
+<!-- =========================================================
+     SR CLOSING AI - CHAT PANEL
+     ========================================================= -->
+
+<div
+  id="aiChatPanel"
+  class="ai-chat-panel"
+  aria-hidden="true"
+>
+
+  <!-- CHAT HEADER -->
+
+  <div class="ai-chat-header">
+
+    <div class="ai-chat-title">
+
+      <div class="ai-chat-avatar">
+        ✦
+      </div>
+
+      <div>
+
+        <strong>
+          SR Closing AI
+        </strong>
+
+        <span>
+          AI Helpdesk Assistant
+        </span>
+
+      </div>
+
+    </div>
+
+
+    <button
+      id="aiChatClose"
+      class="ai-chat-close"
+      type="button"
+      aria-label="Close chat"
+    >
+      ×
+    </button>
+
+  </div>
+
+
+  <!-- CHAT MESSAGES -->
+
+  <div
+    id="aiChatMessages"
+    class="ai-chat-messages"
+  >
+
+    <div class="ai-message ai-message-bot">
+
+      <div class="ai-message-avatar">
+        ✦
+      </div>
+
+      <div class="ai-message-content">
+
+        <div class="ai-message-name">
+          SR Closing AI
+        </div>
+
+        <div class="ai-message-bubble">
+
+          Hi! 👋 I'm your SR Closing AI assistant.
+
+          Ask me about your SRs, SLA,
+          priorities, closure chances,
+          requester messages or next actions.
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- QUICK QUESTIONS -->
+
+  <div class="ai-chat-suggestions">
+
+    <button
+      type="button"
+      data-ai-prompt="Which SR should I work on first?"
+    >
+      Which SR first?
+    </button>
+
+    <button
+      type="button"
+      data-ai-prompt="Which SRs are close to SLA breach?"
+    >
+      SLA risk
+    </button>
+
+    <button
+      type="button"
+      data-ai-prompt="Show me the quickest legitimate closures."
+    >
+      Quick closures
+    </button>
+
+  </div>
+
+
+  <!-- CHAT INPUT -->
+
+  <form
+    id="aiChatForm"
+    class="ai-chat-input-area"
+  >
+
+    <input
+      id="aiChatInput"
+      type="text"
+      placeholder="Ask about your SRs..."
+      autocomplete="off"
+    >
+
+    <button
+      id="aiChatSend"
+      type="submit"
+      aria-label="Send message"
+      title="Send"
+    >
+      ➤
+    </button>
+
+  </form>
+
+</div>
+
+
+<!-- =========================================================
+     APPLICATION JAVASCRIPT
+     ========================================================= -->
+
+<script src="app.js?v=20260820-chat1"></script>
+
 </body>
 </html>
