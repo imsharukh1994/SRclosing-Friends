@@ -1,5 +1,5 @@
 const MODEL = "gemini-3.6-flash";
-const FALLBACK_MODEL = "gemini-2.5-flash-lite";
+const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 
 /* =========================================================
    JSON RESPONSE
